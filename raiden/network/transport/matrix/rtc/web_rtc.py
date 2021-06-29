@@ -62,23 +62,35 @@ class _CoroutineHandler:
         task = asyncio.create_task(coroutine)
         if callback is not None:
             task_callback = create_task_callback(callback, *args, **kwargs)
-            task.add_done_callback(task_callback)
 
+            def done(future):  # type: ignore
+                self.coroutines.remove(task)
+                return task_callback(future)
+
+        else:
+
+            def done(_future):  # type: ignore
+                self.coroutines.remove(task)
+
+        task.add_done_callback(done)
         self.coroutines.append(task)
         return task
 
     async def wait_for_coroutines(self, cancel: bool = True) -> None:
+        assert all(
+            not coroutine.done() for coroutine in self.coroutines
+        ), "done tasks are removed eagerly"
 
         if cancel:
-            self.cancel_all_pending()
+            for coroutine in self.coroutines:
+                coroutine.cancel()
 
-        pending_coroutines = [coroutine for coroutine in self.coroutines if not coroutine.done()]
         # This is done to have the bound keywords if it is of type _RTCPartner
         logger = getattr(self, "log", log)
-        logger.debug("Waiting for coroutines", coroutines=pending_coroutines)
+        logger.debug("Waiting for coroutines", coroutines=self.coroutines)
 
         try:
-            return_values = await asyncio.gather(*pending_coroutines, return_exceptions=True)
+            return_values = await asyncio.gather(*self.coroutines, return_exceptions=True)
             for value in return_values:
                 if isinstance(value, Exception):
                     raise value
@@ -90,11 +102,6 @@ class _CoroutineHandler:
 
     def join_all_coroutines(self) -> None:
         yield_future(self.wait_for_coroutines())
-
-    def cancel_all_pending(self) -> None:
-        for coroutine in self.coroutines:
-            if not coroutine.done() and not coroutine.cancelled():
-                coroutine.cancel()
 
 
 class _RTCPartner(_CoroutineHandler):
