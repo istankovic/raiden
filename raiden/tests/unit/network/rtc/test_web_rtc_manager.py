@@ -1,12 +1,20 @@
 from typing import Any
+
 import pytest
 from gevent.event import Event
 
 from raiden.constants import ICEConnectionState
+from raiden.network.pathfinding import PFSConfig, PFSInfo
 from raiden.network.transport.matrix.rtc.aiogevent import yield_future
 from raiden.network.transport.matrix.rtc.web_rtc import WebRTCManager
-from raiden.tests.utils.factories import make_signer
+from raiden.tests.utils.factories import (
+    UNIT_CHAIN_ID,
+    make_address,
+    make_signer,
+    make_token_network_registry_address,
+)
 from raiden.tests.utils.transport import ignore_web_rtc_messages
+from raiden.utils.typing import BlockNumber, BlockTimeout, TokenAmount
 
 pytestmark = pytest.mark.asyncio
 
@@ -15,11 +23,35 @@ def _dummy_send(*_args: Any) -> None:
     pass
 
 
+def _make_pfs_config() -> PFSConfig:
+    return PFSConfig(
+        info=PFSInfo(
+            url="mock-address",
+            chain_id=UNIT_CHAIN_ID,
+            token_network_registry_address=make_token_network_registry_address(),
+            user_deposit_address=make_address(),
+            payment_address=make_address(),
+            confirmed_block_number=BlockNumber(100),
+            message="",
+            operator="",
+            version="",
+            price=TokenAmount(0),
+            matrix_server="http://matrix.example.com",
+        ),
+        maximum_fee=TokenAmount(100),
+        iou_timeout=BlockTimeout(100),
+        max_paths=5,
+    )
+
+
 def test_rtc_partner_close() -> None:
     node_address = make_signer().address
     stop_event = Event()
 
-    web_rtc_manager = WebRTCManager(node_address, ignore_web_rtc_messages, _dummy_send, stop_event)
+    pfs_config = _make_pfs_config()
+    web_rtc_manager = WebRTCManager(
+        node_address, pfs_config, ignore_web_rtc_messages, _dummy_send, stop_event
+    )
 
     partner_address = make_signer().address
     rtc_partner = web_rtc_manager.get_rtc_partner(partner_address)
