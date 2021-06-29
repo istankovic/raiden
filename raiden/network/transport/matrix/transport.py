@@ -481,8 +481,13 @@ class MatrixTransport(Runnable):
         self.log.debug("Matrix starting")
         self._stop_event.clear()
         self._raiden_service = raiden_service
+        assert raiden_service.config.pfs_config is not None, "must be set"
         self._web_rtc_manager = WebRTCManager(
-            raiden_service.address, self._process_raiden_messages, self._send_raw, self._stop_event
+            raiden_service.address,
+            raiden_service.config.pfs_config,
+            self._process_raiden_messages,
+            self._send_raw,
+            self._stop_event,
         )
 
         assert asyncio.get_event_loop().is_running(), "the loop must be running"
@@ -535,8 +540,7 @@ class MatrixTransport(Runnable):
 
     def health_check_web_rtc(self, partner: Address) -> None:
         if self._started and not self._web_rtc_manager.has_ready_channel(partner):
-            # TODO: initialize WebRTC for the partner address
-            pass
+            self._web_rtc_manager.health_check(partner)
 
     def _set_presence(self, state: UserPresence) -> None:
         waiting_period = randint(SET_PRESENCE_INTERVAL // 4, SET_PRESENCE_INTERVAL)
