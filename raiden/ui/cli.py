@@ -879,7 +879,7 @@ def _smoketest(
 
     free_port_generator = get_free_port()
     try:
-        with step_printer(step_count=7, stdout=sys.stdout) as print_step:
+        with step_printer(step_count=8, stdout=sys.stdout) as print_step:
             with setup_smoketest(
                 eth_client=eth_client,
                 print_step=print_step,
@@ -891,16 +891,18 @@ def _smoketest(
 
                 args = setup.args
                 port = next(free_port_generator)
+                pfs_port = next(free_port_generator)
 
                 args["api_address"] = f"localhost:{port}"
                 args["environment_type"] = environment_type
 
                 # Matrix server
                 args["one_to_n_contract_address"] = "0x" + "1" * 40
-                args["routing_mode"] = RoutingMode.PRIVATE
+                args["routing_mode"] = RoutingMode.PFS
                 args["flat_fee"] = ()
                 args["proportional_fee"] = ()
                 args["proportional_imbalance_fee"] = ()
+                args["pathfinding_service_address"] = f"http://127.0.0.1:{pfs_port}"
 
                 @group(invoke_without_command=True, use_option_parsers=False)
                 @options

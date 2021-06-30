@@ -12,9 +12,11 @@ from tempfile import mkdtemp
 from typing import IO, NamedTuple
 
 import click
+import gevent
 import requests
 from eth_typing import URI, HexStr
 from eth_utils import remove_0x_prefix, to_canonical_address
+from flask import Flask, jsonify
 from gevent import sleep
 from typing_extensions import Protocol
 from web3 import HTTPProvider, Web3
@@ -50,7 +52,7 @@ from raiden.transfer import channel, views
 from raiden.transfer.state import ChannelState
 from raiden.ui.app import run_raiden_service
 from raiden.utils.formatting import to_checksum_address
-from raiden.utils.http import HTTPExecutor
+from raiden.utils.http import HTTPExecutor, split_endpoint
 from raiden.utils.keys import privatekey_to_address
 from raiden.utils.typing import (
     TYPE_CHECKING,
@@ -424,7 +426,41 @@ def setup_raiden(
     return RaidenTestSetup(args=args, token=token, contract_addresses=contract_addresses)
 
 
+def _start_dummy_pfs(setup: RaidenTestSetup) -> None:
+    pfs_url = setup.args["pathfinding_service_address"]
+    host, port = split_endpoint(pfs_url)
+
+    token_network_registry_address = to_checksum_address(
+        setup.contract_addresses["TokenNetworkRegistry"]
+    )
+    user_deposit_address = to_checksum_address(setup.contract_addresses["UserDeposit"])
+
+    app = Flask("Dummy PFS")
+
+    @app.route("/api/v1/info")
+    def pfs_info():
+        return jsonify(
+            price_info=0,
+            network_info=dict(
+                chain_id=setup.args["config"].chain_id,
+                token_network_registry_address=token_network_registry_address,
+                user_deposit_address=user_deposit_address,
+                confirmed_block=dict(number=0),
+            ),
+            payment_address="0xB9633dd9a9a71F22C933bF121d7a22008f66B908",
+            message="Welcome to the Dummy PFS",
+            operator="nobody",
+            version="1.2",
+            matrix_server="http://matrix.example",
+        )
+
+    app.run(host=host, port=port)
+
+
 def run_smoketest(print_step: StepPrinter, setup: RaidenTestSetup) -> None:
+    print_step("Starting dummy PFS")
+    pfs_greenlet = gevent.spawn(_start_dummy_pfs, setup)
+
     print_step("Starting Raiden")
 
     app = None
@@ -500,6 +536,7 @@ def run_smoketest(print_step: StepPrinter, setup: RaidenTestSetup) -> None:
         if app is not None:
             app.stop()
             app.greenlet.get()
+        pfs_greenlet.kill()
 
 
 @contextmanager
