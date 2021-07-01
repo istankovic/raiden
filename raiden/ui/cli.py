@@ -891,7 +891,6 @@ def _smoketest(
 
                 args = setup.args
                 port = next(free_port_generator)
-                pfs_port = next(free_port_generator)
 
                 args["api_address"] = f"localhost:{port}"
                 args["environment_type"] = environment_type
@@ -902,7 +901,7 @@ def _smoketest(
                 args["flat_fee"] = ()
                 args["proportional_fee"] = ()
                 args["proportional_imbalance_fee"] = ()
-                args["pathfinding_service_address"] = f"http://127.0.0.1:{pfs_port}"
+                # args["pathfinding_service_address"] = f"http://127.0.0.1:{pfs_port}"
 
                 @group(invoke_without_command=True, use_option_parsers=False)
                 @options

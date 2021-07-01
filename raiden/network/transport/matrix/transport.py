@@ -539,6 +539,7 @@ class MatrixTransport(Runnable):
             self.health_check_web_rtc(neighbour)
 
     def health_check_web_rtc(self, partner: Address) -> None:
+        self.log.debug("health check", partner=partner)
         if self._started and not self._web_rtc_manager.has_ready_channel(partner):
             self._web_rtc_manager.health_check(partner)
 
@@ -956,6 +957,8 @@ class MatrixTransport(Runnable):
             call_messages: List of signalling messages
         """
 
+        for received_message in call_messages:
+            print("-----> ", received_message)
         for received_message in call_messages:
             call_message = received_message.message
             partner_address = received_message.sender

@@ -71,6 +71,7 @@ from raiden.utils.typing import (
     OneToNAddress,
     Port,
     PrivateKey,
+    ServiceRegistryAddress,
     TokenAddress,
     TokenAmount,
     TokenNetworkRegistryAddress,
@@ -276,7 +277,7 @@ def setup_testchain(
 
     random_marker = remove_0x_prefix(HexStr(hex(random.getrandbits(100))))
     genesis_description = GenesisDescription(
-        prefunded_accounts=[AccountDescription(TEST_ACCOUNT_ADDRESS, DEFAULT_BALANCE)],
+        prefunded_accounts=[AccountDescription(TEST_ACCOUNT_ADDRESS, 1000 * DEFAULT_BALANCE)],
         random_marker=random_marker,
         chain_id=CHAINNAME_TO_ID["smoketest"],
     )
@@ -396,6 +397,14 @@ def setup_raiden(
         token_network_deposit_limit=TokenAmount(UINT256_MAX),
         given_block_identifier=confirmed_block_identifier,
     )
+
+    service_registry = proxy_manager.service_registry(
+        ServiceRegistryAddress(contract_addresses[CONTRACT_SERVICE_REGISTRY]),
+        block_identifier=confirmed_block_identifier,
+    )
+    amount = service_registry.current_price(confirmed_block_identifier)
+    service_registry.deposit(confirmed_block_identifier, amount * 5)
+    service_registry.set_url("http://127.0.0.1:56789")
 
     print_step("Setting up Raiden")
     user_deposit_contract_address = to_checksum_address(contract_addresses[CONTRACT_USER_DEPOSIT])

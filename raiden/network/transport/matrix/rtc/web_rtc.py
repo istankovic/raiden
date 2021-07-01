@@ -217,12 +217,13 @@ class _RTCPartner(_CoroutineHandler):
     async def _try_signaling(self, coroutine: Coroutine) -> Optional[Any]:
         try:
             return await coroutine
-        except InvalidStateError:
+        except InvalidStateError as e:
             # this can happen if peer connection gets closed while awaiting in the try block
             self.log.debug(
                 "Connection state in incompatible state",
                 signaling_state=self.peer_connection.signalingState,
                 ice_connection_state=self.peer_connection.iceConnectionState,
+                e=e,
             )
             asyncio.create_task(self.close())
             return None
@@ -451,6 +452,7 @@ class WebRTCManager(_CoroutineHandler, Runnable):
 
     def _maybe_initialize_web_rtc(self, address: Address) -> None:
         if address in self._web_rtc_channel_inits:
+            self.log.debug("init in progress for %s" % to_checksum_address(address))
             return
 
         lower_address = my_place_or_yours(self.node_address, address)
@@ -555,6 +557,7 @@ class WebRTCManager(_CoroutineHandler, Runnable):
         )
 
     def send_message_for_address(self, partner_address: Address, message: str) -> None:
+        self.log.debug("sending message via RTC", message=message)
         rtc_partner = self._address_to_rtc_partners[partner_address]
         self.schedule_task(rtc_partner.send_message(message))
 
@@ -622,6 +625,7 @@ def _on_datachannel(
     node_address: Address,
     channel: RTCDataChannel,
 ) -> None:
+    log.debug("_on_datachannel", node=to_checksum_address(node_address), channel=channel)
     rtc_partner.channel = channel
     _on_channel_open(node_address, channel)
     rtc_partner.set_channel_callbacks()
